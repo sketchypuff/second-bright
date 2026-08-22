@@ -5,7 +5,7 @@ import SecondBrightCore
 struct BrightnessPopover: View {
     @Bindable var controller: BrightnessController
 
-    private static let presets: [Double] = [0, 25, 50, 100]
+    private static let presets: [Double] = [0, 25, 50, 75, 100]
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
