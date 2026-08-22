@@ -8,6 +8,8 @@
 	<string>SecondBright</string>
 	<key>CFBundleExecutable</key>
 	<string>SecondBright</string>
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
 	<key>CFBundleIdentifier</key>
 	<string>com.yashshenai.SecondBright</string>
 	<key>CFBundlePackageType</key>

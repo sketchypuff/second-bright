@@ -1,4 +1,4 @@
-.PHONY: build install diagnose test run clean
+.PHONY: build install diagnose test run icon clean
 
 build:
 	@Scripts/build-app.sh
@@ -22,6 +22,14 @@ run: build
 
 test:
 	@swift run SecondBrightChecks
+
+# Redraws the app icon from Scripts/make-icon.swift and repackages the .icns.
+icon:
+	@mkdir -p build/AppIcon.iconset
+	@swiftc -O -o build/make-icon Scripts/make-icon.swift
+	@build/make-icon build/AppIcon.iconset
+	@iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
+	@echo "==> Wrote Resources/AppIcon.icns"
 
 clean:
 	@rm -rf build .build

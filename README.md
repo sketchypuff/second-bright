@@ -67,6 +67,16 @@ DDC luminance (0x37)         : FAILED
 | `Sources/SecondBright/` | SwiftUI `MenuBarExtra` and popover |
 | `Sources/SecondBrightChecks/` | `make test` |
 | `Scripts/build-app.sh` | Assembles the `.app` bundle |
+| `Scripts/make-icon.swift` | Draws the app icon (`make icon`) |
+
+## The icon
+
+Drawn in code with CoreGraphics rather than exported from a design tool, so it
+re-renders sharply at every size and the geometry stays editable without binary
+assets. `make icon` redraws it and repackages `Resources/AppIcon.icns`.
+
+The plate is a superellipse rather than a rounded rectangle: macOS uses continuous
+corners, and a plain rounded rect reads as subtly wrong next to real system icons.
 
 ## Notes and limitations
 
