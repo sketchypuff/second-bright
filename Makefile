@@ -27,13 +27,9 @@ test:
 dmg: build
 	@Scripts/make-dmg.sh
 
-# Redraws the app icon from Scripts/make-icon.swift and repackages the .icns.
+# Repackages Resources/AppIcon.png into Resources/AppIcon.icns.
 icon:
-	@mkdir -p build/AppIcon.iconset
-	@swiftc -O -o build/make-icon Scripts/make-icon.swift
-	@build/make-icon build/AppIcon.iconset
-	@iconutil -c icns build/AppIcon.iconset -o Resources/AppIcon.icns
-	@echo "==> Wrote Resources/AppIcon.icns"
+	@Scripts/make-icon.sh
 
 clean:
 	@rm -rf build .build

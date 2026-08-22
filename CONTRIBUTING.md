@@ -41,7 +41,7 @@ com.yashshenai.SecondBright`.
 | `make dmg` | Builds `build/SecondBright-<version>.dmg`, the installer users download |
 | `make diagnose` | Prints what the DDC layer can see (start here when the slider misbehaves) |
 | `make test` | Runs the checks in `Sources/SecondBrightChecks` |
-| `make icon` | Redraws the icon and repackages `Resources/AppIcon.icns` |
+| `make icon` | Repackages `Resources/AppIcon.png` into `Resources/AppIcon.icns` |
 | `make clean` | Removes `build/` and `.build/` |
 
 ## Cutting a release
@@ -194,7 +194,7 @@ GUI is the thing misbehaving.
 | `Sources/SecondBright/` | SwiftUI `MenuBarExtra` and popover |
 | `Sources/SecondBrightChecks/` | `make test` |
 | `Scripts/build-app.sh` | Assembles the `.app` bundle |
-| `Scripts/make-icon.swift` | Draws the app icon (`make icon`) |
+| `Scripts/make-icon.sh` | Repackages the app icon (`make icon`) |
 | `Scripts/make-dmg.sh` | Builds the installer disk image (`make dmg`) |
 | `Scripts/make-dmg-background.swift` | Draws the disk image's background |
 
@@ -205,15 +205,24 @@ and ad-hoc signs it. `MenuBarExtra` needs a real bundle (and the Info.plist's
 
 ## The icon
 
-Drawn in code with CoreGraphics rather than exported from a design tool, so it
-re-renders sharply at every size and the geometry stays editable without binary
-assets. `make icon` redraws it and repackages `Resources/AppIcon.icns`.
+Designed in Apple's Icon Composer. `Resources/AppIcon.png` is the source of
+truth — 1024x1024, artwork already on the macOS icon grid — and `make icon`
+resizes it into the ten entries `iconutil` needs to produce
+`Resources/AppIcon.icns`. Edit the PNG, never the `.icns`.
 
-The plate is a superellipse rather than a rounded rectangle: macOS uses
-continuous corners, and a plain rounded rect reads as subtly wrong next to real
-system icons.
+If you re-export from Icon Composer, choose the **macOS** platform. An iOS
+export is full-bleed: its rounded plate runs to all four edges of the canvas,
+where a macOS icon sits inset with transparent margin around it. Dropping an
+iOS export in unchanged makes SecondBright render noticeably larger than every
+other app in Finder.
 
-The disk image background is drawn the same way, by
+Icon Composer also emits dark, clear, and tinted variants. A `.icns` holds one
+appearance only, so those go unused here; picking them up would mean compiling
+the `.icon` with `actool` into an asset catalog and switching Info.plist to
+`CFBundleIconName`. That needs full Xcode, which this build deliberately does
+not require.
+
+The disk image background is drawn in code, by
 `Scripts/make-dmg-background.swift`. Its icon-centre constants are duplicated in
 the AppleScript inside `make-dmg.sh`; move one and the arrow stops lining up
 with the icons.
