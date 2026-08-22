@@ -1,4 +1,4 @@
-.PHONY: build install diagnose test run icon clean
+.PHONY: build install diagnose test run icon dmg clean
 
 build:
 	@Scripts/build-app.sh
@@ -22,6 +22,10 @@ run: build
 
 test:
 	@swift run SecondBrightChecks
+
+# Builds the installer disk image users download. See Scripts/make-dmg.sh.
+dmg: build
+	@Scripts/make-dmg.sh
 
 # Redraws the app icon from Scripts/make-icon.swift and repackages the .icns.
 icon:
