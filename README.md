@@ -41,7 +41,7 @@ folder to the Trash.
 
 ## What it does
 
-- A slider in the menu bar, plus 0 / 25 / 50 / 100% buttons. The full range:
+- A slider in the menu bar, plus 0 / 25 / 50 / 75 / 100% buttons. The full range:
   100% is your monitor's brightest, 0% is a black screen.
 - Remembers the level for each monitor and sets it again when you log in.
 - Notices when you unplug, replug, or wake the Mac, and puts your brightness

@@ -120,6 +120,38 @@ suite("DDC luminance scaling") {
           && BrightnessController.luminance(forPercent: -50, maximum: 255) == 0)
 }
 
+suite("Preset levels") {
+    // The popover's preset buttons. Kept in sync by hand with
+    // BrightnessPopover.presets, which lives in the app target and so is not
+    // visible from here.
+    let presets: [Double] = [0, 25, 50, 75, 100]
+
+    // Software mode: every preset lands somewhere distinct, 0 is black, 100 is
+    // untouched. A preset that collided with another would be a dead button.
+    let scales = presets.map(GammaDimmer.scale(forPercent:))
+    check("presets are distinct in software mode", Set(scales).count == presets.count)
+    check("presets ascend in software mode", scales == scales.sorted())
+    check("the 0% preset is black", abs(scales[0]) < 0.0001)
+    check("the 100% preset is untouched", abs(scales[4] - 1.0) < 0.0001)
+
+    // DDC mode: every preset except 0 sits above the gamma crossover, so gamma
+    // stays out of the way and the backlight alone distinguishes them.
+    check("only the 0% preset engages the gamma ramp",
+          presets.dropFirst().allSatisfy {
+              abs(GammaDimmer.rampScale(forPercent: $0) - 1.0) < 0.0001
+          })
+    let luminances = presets.map { BrightnessController.luminance(forPercent: $0, maximum: 255) }
+    check("presets are distinct in DDC mode", Set(luminances).count == presets.count)
+    check("presets ascend in DDC mode", luminances == luminances.sorted())
+
+    // 75% is the newest preset and the one most likely to be mis-specified:
+    // it has to sit strictly between 50 and 100 in both modes.
+    check("75% sits between 50% and 100% in software mode",
+          scales[2] < scales[3] && scales[3] < scales[4])
+    check("75% sits between 50% and 100% in DDC mode",
+          luminances[2] < luminances[3] && luminances[3] < luminances[4])
+}
+
 suite("Persistence keys") {
     // Saved levels are keyed per monitor, so plugging in a different display
     // doesn't inherit the wrong brightness.

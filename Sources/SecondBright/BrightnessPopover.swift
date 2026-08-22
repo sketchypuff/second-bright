@@ -26,7 +26,10 @@ struct BrightnessPopover: View {
             footer
         }
         .padding(14)
-        .frame(width: 280)
+        // 310 rather than 280: five presets need about 50pt each before "100%"
+        // starts truncating, and four of them fit in 280 only because there were
+        // four. See `presetRow`.
+        .frame(width: 310)
         // While this is on screen the user is deliberately setting a level, so
         // the zero-brightness cursor wake must stay out of the way -- on a Mac
         // where the external monitor is the main display, this popover is itself
@@ -58,8 +61,10 @@ struct BrightnessPopover: View {
         }
     }
 
+    /// Sized so the widest label ("100%") keeps its border padding rather than
+    /// truncating. Adding a sixth preset means widening the popover again.
     private var presetRow: some View {
-        HStack(spacing: 6) {
+        HStack(spacing: 4) {
             ForEach(Self.presets, id: \.self) { preset in
                 Button("\(Int(preset))%") { controller.percent = preset }
                     .buttonStyle(.bordered)
