@@ -27,6 +27,12 @@ struct BrightnessPopover: View {
         }
         .padding(14)
         .frame(width: 280)
+        // While this is on screen the user is deliberately setting a level, so
+        // the zero-brightness cursor wake must stay out of the way -- on a Mac
+        // where the external monitor is the main display, this popover is itself
+        // on the screen being blacked out.
+        .onAppear { controller.setPopoverOpen(true) }
+        .onDisappear { controller.setPopoverOpen(false) }
     }
 
     private var header: some View {

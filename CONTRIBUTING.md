@@ -91,9 +91,25 @@ every reconnect:
    do. This is preferred whenever the panel accepts it.
 2. **Software dimming** — a gamma adjustment applied to that display only. Used
    when the backlight is unreachable. It darkens the *image* rather than the
-   lamp, so it can't go above 100% and it helps less with eye strain in a dark
-   room. The popover says when this mode is active, so you're never left
-   guessing.
+   lamp, so it helps less with eye strain in a dark room. The popover says when
+   this mode is active, so you're never left guessing.
+
+The slider spans the panel's full range, 100% down to black. Reaching black
+takes both mechanisms, because neither gets there alone: the backlight has a
+floor of its own well above zero, and gamma can only darken what's rendered. So
+in DDC mode gamma stays out of the way above `GammaDimmer.crossoverPercent`
+(20%) and ramps to zero below it, while the backlight drops across the whole
+range. In software mode gamma does all of it.
+
+Both are linear in gamma-encoded space rather than in emitted light, which is
+already close to perceptually even: `CGSetDisplayTransferByFormula` scales the
+encoded value, and light output goes as roughly its 2.2 power.
+
+"Black" is as black as the panel allows. On an LCD the backlight is still lit at
+0%, so a faint glow remains; on OLED it is genuinely black. Putting the panel
+into DDC standby (VCP `0xD6`) would kill the glow too, at the cost of a
+multi-second wake and a "no signal" banner on some monitors — deliberately not
+done.
 
 The probe is a real DDC read of the luminance feature, not a capability
 advertisement: a display can claim DDC and still refuse it, and an unresponsive
@@ -106,10 +122,13 @@ make the app believe it was working while doing nothing.
 2. `BrightnessController` persists the value and schedules an apply 50 ms out,
    cancelling any pending one — DDC cannot survive raw slider traffic, and the
    coalescing guarantees the final value still lands.
-3. In DDC mode the write goes to a serial queue (the protocol needs paced,
-   ordered, blocking I/O, and it must not run on the main thread or the slider
-   stutters); transactions are spaced 50 ms apart. In software mode the gamma
-   curve is set directly.
+3. In DDC mode the gamma ramp is set directly and the luminance write goes to a
+   serial queue (the protocol needs paced, ordered, blocking I/O, and it must
+   not run on the main thread or the slider stutters); transactions are spaced
+   50 ms apart. In software mode only the gamma curve is set.
+   The luminance value is scaled against the maximum the panel reported, which
+   is routinely not 100 — writing the percentage straight through would cap a
+   0...255 display at about 39% of its range.
 4. `DisplayWatcher` re-runs the whole probe on any display reconfiguration,
    two seconds after the change settles — monitors ignore commands sent the
    instant they reconnect.
@@ -157,7 +176,7 @@ GUI is the thing misbehaving.
 | Path | Role |
 |---|---|
 | `Sources/SecondBrightCore/DDCService.swift` | DDC/CI over I2C on Apple Silicon |
-| `Sources/SecondBrightCore/GammaDimmer.swift` | Software dimming fallback |
+| `Sources/SecondBrightCore/GammaDimmer.swift` | Gamma dimming: all of software mode, the bottom of DDC mode |
 | `Sources/SecondBrightCore/BrightnessController.swift` | Level, mode selection, throttling, persistence |
 | `Sources/SecondBrightCore/DisplayIdentity.swift` | Picking and identifying the external display |
 | `Sources/SecondBrightCore/DisplayWatcher.swift` | Connect / disconnect / wake handling |
@@ -202,10 +221,19 @@ with the icons.
   friends). There is no public API for this on Apple Silicon. They're resolved
   with `dlsym` at runtime, so if a future macOS removes them the app degrades to
   software dimming instead of failing to launch.
-- **Software dimming never goes fully black** — it stops at 25%, because a screen
-  dimmed to zero would hide the very slider you need to undo it.
-- **Gamma is system-wide state.** The app restores it on quit and on unplug. If
-  it is ever force-killed while dimming, relaunching fixes it; macOS also resets
+- **Zero means black, and the way back is the cursor.** Dimming used to stop at
+  25%, on the grounds that a black screen hides the slider you need to undo it.
+  The floor solved that by taking the feature away. Instead, while the level is
+  exactly 0 the controller watches the cursor, and moving it onto that display
+  restores 25% as a real, persisted change. The escape hatch is the thing you'd
+  reach for anyway.
+- **The cursor is polled, not monitored.** `NSEvent.mouseLocation` needs no
+  Accessibility permission and no entitlement, where a global event monitor
+  would; the poll only runs while the screen is black, so it costs nothing in
+  normal use.
+- **Gamma is system-wide state**, and both modes now use it. The app restores it
+  on quit and on unplug, and clears it unconditionally once at launch — a run
+  force-killed while black leaves nothing else to undo it. macOS also resets
   gamma on logout.
 - Tests are an executable (`make test`), not a `.testTarget`: SwiftPM's macOS
   test bundles need full Xcode for test discovery, and with Command Line Tools

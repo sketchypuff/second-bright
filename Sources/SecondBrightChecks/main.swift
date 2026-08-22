@@ -60,10 +60,9 @@ suite("Software dimming scale") {
     check("100% leaves gamma untouched",
           abs(GammaDimmer.scale(forPercent: 100) - 1.0) < 0.0001)
 
-    // Zero percent must still leave the screen readable, otherwise the user
-    // cannot see the slider they need in order to undo it.
-    check("0% stops at the readable floor",
-          abs(GammaDimmer.scale(forPercent: 0) - GammaDimmer.minimumScale) < 0.0001)
+    // The whole point of the change: zero means a black screen, not a dim one.
+    check("0% reaches full black",
+          abs(GammaDimmer.scale(forPercent: 0)) < 0.0001)
 
     let curve = stride(from: 0.0, through: 100.0, by: 5).map(GammaDimmer.scale(forPercent:))
     check("scale increases monotonically", curve == curve.sorted())
@@ -71,8 +70,54 @@ suite("Software dimming scale") {
     check("out-of-range input is clamped",
           [-50.0, -1.0, 101.0, 500.0].allSatisfy {
               let s = GammaDimmer.scale(forPercent: $0)
-              return s >= GammaDimmer.minimumScale && s <= 1.0
+              return s >= 0 && s <= 1.0
           })
+}
+
+suite("DDC gamma ramp") {
+    // In DDC mode gamma only acts below the crossover; above it the backlight
+    // is doing the work and touching gamma would wash out the picture.
+    check("gamma is untouched at the crossover",
+          abs(GammaDimmer.rampScale(forPercent: GammaDimmer.crossoverPercent) - 1.0) < 0.0001)
+    check("gamma is untouched above the crossover",
+          [25.0, 50.0, 100.0].allSatisfy {
+              abs(GammaDimmer.rampScale(forPercent: $0) - 1.0) < 0.0001
+          })
+    check("0% reaches full black",
+          abs(GammaDimmer.rampScale(forPercent: 0)) < 0.0001)
+
+    let ramp = stride(from: 0.0, through: 100.0, by: 2.5).map(GammaDimmer.rampScale(forPercent:))
+    check("ramp increases monotonically", ramp == ramp.sorted())
+
+    // A step at the crossover would show up as a visible jump mid-slider.
+    let below = GammaDimmer.rampScale(forPercent: GammaDimmer.crossoverPercent - 0.01)
+    check("ramp is continuous at the crossover", abs(below - 1.0) < 0.01)
+}
+
+suite("DDC luminance scaling") {
+    // Panels report their own full-scale value; writing the percentage straight
+    // through would cap a 0...255 display at roughly 39% of its range.
+    check("100% reaches the reported maximum",
+          BrightnessController.luminance(forPercent: 100, maximum: 255) == 255)
+    check("0% reaches zero",
+          BrightnessController.luminance(forPercent: 0, maximum: 255) == 0)
+    check("50% lands mid-range",
+          BrightnessController.luminance(forPercent: 50, maximum: 255) == 128)
+    check("a 0...100 panel is unchanged",
+          BrightnessController.luminance(forPercent: 73, maximum: 100) == 73)
+
+    // A display that reports a maximum of zero is malformed; falling back keeps
+    // the slider working instead of pinning everything to black.
+    check("a zero maximum falls back to 100",
+          BrightnessController.luminance(forPercent: 100, maximum: 0) == 100)
+
+    let values = stride(from: 0.0, through: 100.0, by: 5)
+        .map { BrightnessController.luminance(forPercent: $0, maximum: 255) }
+    check("luminance increases monotonically", values == values.sorted())
+
+    check("out-of-range input is clamped",
+          BrightnessController.luminance(forPercent: 500, maximum: 255) == 255
+          && BrightnessController.luminance(forPercent: -50, maximum: 255) == 0)
 }
 
 suite("Persistence keys") {

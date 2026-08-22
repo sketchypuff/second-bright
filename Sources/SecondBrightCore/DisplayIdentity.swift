@@ -34,12 +34,21 @@ public struct DisplayIdentity: Equatable {
         "\(CGDisplayVendorNumber(id))-\(CGDisplayModelNumber(id))-\(CGDisplaySerialNumber(id))"
     }
 
+    /// The `NSScreen` this display is presented as, if AppKit currently lists it.
+    ///
+    /// Looked up live rather than stored: screens are replaced wholesale on
+    /// reconfiguration, so a cached one goes stale on the first unplug.
+    public var screen: NSScreen? { Self.screen(for: displayID) }
+
+    public static func screen(for id: CGDirectDisplayID) -> NSScreen? {
+        NSScreen.screens.first {
+            ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == id
+        }
+    }
+
     /// `NSScreen` already resolves the marketing name ("LG ULTRAFINE"); walking the
     /// IORegistry by hand to rediscover it is more code and less reliable.
     private static func name(for id: CGDirectDisplayID) -> String {
-        let screen = NSScreen.screens.first {
-            ($0.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber)?.uint32Value == id
-        }
-        return screen?.localizedName ?? "External display"
+        screen(for: id)?.localizedName ?? "External display"
     }
 }

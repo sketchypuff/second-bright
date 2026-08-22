@@ -41,7 +41,8 @@ folder to the Trash.
 
 ## What it does
 
-- A slider in the menu bar, plus 0 / 25 / 50 / 100% buttons.
+- A slider in the menu bar, plus 0 / 25 / 50 / 100% buttons. The full range:
+  100% is your monitor's brightest, 0% is a black screen.
 - Remembers the level for each monitor and sets it again when you log in.
 - Notices when you unplug, replug, or wake the Mac, and puts your brightness
   back — monitors routinely forget it when they sleep.
@@ -60,9 +61,24 @@ whenever the monitor permits it.
 **Dimming the picture.** Some monitors don't let software touch their backlight.
 For those, SecondBright darkens the image on that screen instead. It genuinely
 looks dimmer, but the lamp behind the panel is still at full power, so it helps
-less in a dark room and it can't make the screen brighter than the monitor's own
-setting. The popover tells you when this is what's happening, so you're never
-left guessing.
+less in a dark room. The popover tells you when this is what's happening, so
+you're never left guessing.
+
+Either way the slider goes all the way down. Turning the backlight down only
+gets you so far — every monitor has a floor of its own, well above off — so at
+the bottom of the range SecondBright darkens the picture as well, and the two
+together take the screen to black.
+
+How black is black? On a normal LCD the lamp behind the panel is still on, so
+you'll see a faint glow rather than a screen that looks switched off. On an OLED
+monitor it's properly black.
+
+### Getting back from a black screen
+
+Move your mouse onto the dark monitor and it comes back to 25%. That's a real
+change, not a preview — the slider moves with it and it stays there until you
+turn it down again. Your Mac's own screen is never dimmed, so the menu bar and
+the slider are always where you left them too.
 
 ### If the slider doesn't seem to do much
 
