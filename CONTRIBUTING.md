@@ -47,15 +47,25 @@ com.yashshenai.SecondBright`.
 ## Cutting a release
 
 1. Bump `CFBundleShortVersionString` in `Resources/Info.plist`.
-2. Tag and push:
+2. Add a `## <version>` section to `CHANGELOG.md`. This is what people read on
+   the download page, so write it for them — what's different when they use it,
+   not which files moved.
+3. Tag and push:
 
    ```bash
-   git tag v1.1 && git push origin v1.1
+   git tag v1.2 && git push origin v1.2
    ```
 
 `.github/workflows/release.yml` builds the disk image on an Apple Silicon runner
-and publishes it with install instructions attached. It refuses to build if the
-tag and the plist version disagree, so a `v1.1` release can't ship a 1.0 binary.
+and publishes it. Two checks guard it: the tag has to match the plist version,
+so a `v1.2` release can't ship a 1.1 binary, and the changelog has to have a
+section for that version, so a release can't go out with an empty body.
+
+Release notes come from `Scripts/release-notes.sh <version>`, which prints the
+changelog section plus the standing install steps. Run it to preview what a
+release will say. **Don't publish by hand with `gh release create`** — the tag
+push already triggers the workflow, and a release created first makes that run
+fail on "a release with the same tag name already exists".
 
 The DMG's window layout — icon positions, the background image, the hidden
 toolbar — lives in a `.DS_Store`, which only Finder can write. `make dmg` drives

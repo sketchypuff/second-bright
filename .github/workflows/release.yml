@@ -55,6 +55,14 @@ jobs:
             exit 1
           fi
 
+      # Before the build, so a forgotten CHANGELOG entry costs seconds rather
+      # than a full compile.
+      - name: Collect release notes
+        run: |
+          Scripts/release-notes.sh "${{ steps.version.outputs.version }}" \
+            > "$RUNNER_TEMP/notes.md"
+          cat "$RUNNER_TEMP/notes.md"
+
       - name: Build disk image
         run: make dmg
 
@@ -65,15 +73,4 @@ jobs:
           gh release create "${{ steps.version.outputs.tag }}" \
             "build/SecondBright-${{ steps.version.outputs.version }}.dmg" \
             --title "SecondBright ${{ steps.version.outputs.version }}" \
-            --notes-file - <<'NOTES'
-          ## Install
-
-          1. Download the `.dmg` below.
-          2. Open it and drag **SecondBright** onto the **Applications** folder.
-          3. Open SecondBright from Applications. macOS will refuse the first
-             time, because this app is not signed with a paid Apple Developer
-             certificate. Click **Done**, then open **System Settings › Privacy
-             & Security**, scroll to the bottom, and click **Open Anyway**.
-
-          Step 3 happens once. After that it opens normally, including at login.
-          NOTES
+            --notes-file "$RUNNER_TEMP/notes.md"
