@@ -4,6 +4,13 @@ Notes for each released version. `Scripts/release-notes.sh` reads the section
 matching a tag and hands it to the release workflow, so what's written here is
 what people see on the download page — write it for them, not for the repo.
 
+## 1.2
+
+- A new app icon, designed in Icon Composer.
+
+Nothing else changed: the brightness behaviour is identical to 1.1, so there's
+no reason to update beyond liking the new icon better.
+
 ## 1.1
 
 The first public release.
