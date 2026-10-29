@@ -4,6 +4,16 @@ Notes for each released version. `Scripts/release-notes.sh` reads the section
 matching a tag and hands it to the release workflow, so what's written here is
 what people see on the download page — write it for them, not for the repo.
 
+## 1.3
+
+- Fixes the monitor being told it can't do backlight control when it can. The
+  app asked the monitor once, at the moment it appeared, and a monitor that was
+  still waking up missed its only chance to answer — after that it was dimmed by
+  picture rather than backlight until the app was restarted. It now asks a few
+  times, and asks again whenever you open the slider while picture dimming is in
+  use, so a monitor that was slow to answer gets picked up instead of staying
+  wrong all session.
+
 ## 1.2
 
 - A new app icon, designed in Icon Composer.
