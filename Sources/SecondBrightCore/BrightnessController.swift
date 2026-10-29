@@ -31,6 +31,18 @@ public final class BrightnessController {
     /// Without it, the hand that just let go of the slider undoes the setting.
     public static let wakeGrace: Duration = .milliseconds(1500)
 
+    /// How many times the probe asks the panel before settling on software mode.
+    ///
+    /// One failed read is not evidence: a monitor that has just been plugged in,
+    /// woken, or had its input switched ignores the first transaction or two, and
+    /// a panel that answers on the third attempt is a DDC panel. Asking once is
+    /// how a perfectly capable display gets stuck dimming by gamma until the app
+    /// is relaunched.
+    public static let probeAttempts = 4
+
+    /// Gap between probe attempts. Long enough for a link that is still coming up.
+    public static let probeRetryDelay: Duration = .milliseconds(600)
+
     public private(set) var mode: Mode = .unavailable
     public private(set) var displayName: String = ""
 
@@ -53,6 +65,7 @@ public final class BrightnessController {
     private var dimmer: GammaDimmer?
     private var identity: DisplayIdentity?
     private var applyTask: Task<Void, Never>?
+    private var probeTask: Task<Void, Never>?
     private var cursorWatch: Task<Void, Never>?
     private var didClearStaleGamma = false
     private var isPopoverOpen = false
@@ -80,6 +93,8 @@ public final class BrightnessController {
         }
 
         applyTask?.cancel()
+        probeTask?.cancel()
+        probeTask = nil
         cursorWatch?.cancel()
         cursorWatch = nil
         dimmer?.restore()
@@ -99,14 +114,11 @@ public final class BrightnessController {
         percent = restored(for: display)
 
         // Probe rather than assume: a display can advertise DDC and still refuse
-        // it (HDR, locked firmware, a cable that drops the I2C pair).
-        if let service = DDCService.forExternalDisplay(), let reading = service.read(.luminance) {
-            ddc = service
-            ddcMaximum = reading.maximum
-            mode = .ddc
-        } else {
-            mode = .software
-        }
+        // it (HDR, locked firmware, a cable that drops the I2C pair). Software
+        // mode is the assumption until a read comes back, so the slider works
+        // immediately and upgrades itself if the panel answers.
+        mode = .software
+        startProbe()
 
         // Both modes need gamma now: software mode for the whole range, DDC mode
         // for the stretch below the backlight's own floor.
@@ -116,9 +128,52 @@ public final class BrightnessController {
         updateCursorWatch()
     }
 
+    /// Asks the panel for its luminance, retrying, and switches to DDC mode if it
+    /// ever answers.
+    ///
+    /// Off the main actor and spread over several attempts: the read is blocking
+    /// I2C traffic, and a freshly connected link needs a second or two of being
+    /// asked before it starts replying.
+    private func startProbe() {
+        let queue = ddcQueue
+        probeTask = Task { [weak self] in
+            for attempt in 0..<Self.probeAttempts {
+                if attempt > 0 {
+                    try? await Task.sleep(for: Self.probeRetryDelay)
+                }
+                guard !Task.isCancelled else { return }
+
+                // Through the same serial queue as the slider's writes: DDC is
+                // order-sensitive and must not be driven from two places.
+                let probe: (service: DDCService, maximum: UInt16)? = await withCheckedContinuation { continuation in
+                    queue.async {
+                        guard let service = DDCService.forExternalDisplay(),
+                              let reading = service.read(.luminance)
+                        else {
+                            continuation.resume(returning: nil)
+                            return
+                        }
+                        continuation.resume(returning: (service, reading.maximum))
+                    }
+                }
+
+                guard !Task.isCancelled, let self else { return }
+                guard let probe else { continue }
+
+                self.ddc = probe.service
+                self.ddcMaximum = probe.maximum
+                self.mode = .ddc
+                self.applyNow()
+                return
+            }
+        }
+    }
+
     /// Restores gamma. Must be called before the process exits.
     public func shutdown() {
         applyTask?.cancel()
+        probeTask?.cancel()
+        probeTask = nil
         cursorWatch?.cancel()
         cursorWatch = nil
         dimmer?.restore()
