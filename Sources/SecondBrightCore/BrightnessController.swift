@@ -66,6 +66,12 @@ public final class BrightnessController {
     private var identity: DisplayIdentity?
     private var applyTask: Task<Void, Never>?
     private var probeTask: Task<Void, Never>?
+    /// Guards against a second probe running alongside one already in flight —
+    /// DDC is order-sensitive and two probes would interleave on the queue.
+    private var isProbing = false
+    /// Invalidates a probe whose display has since been swapped out from under
+    /// it, so a cancelled run cannot report a mode for a monitor that is gone.
+    private var probeGeneration = 0
     private var cursorWatch: Task<Void, Never>?
     private var didClearStaleGamma = false
     private var isPopoverOpen = false
@@ -95,6 +101,7 @@ public final class BrightnessController {
         applyTask?.cancel()
         probeTask?.cancel()
         probeTask = nil
+        isProbing = false
         cursorWatch?.cancel()
         cursorWatch = nil
         dimmer?.restore()
@@ -135,6 +142,10 @@ public final class BrightnessController {
     /// I2C traffic, and a freshly connected link needs a second or two of being
     /// asked before it starts replying.
     private func startProbe() {
+        guard !isProbing else { return }
+        isProbing = true
+        probeGeneration += 1
+        let generation = probeGeneration
         let queue = ddcQueue
         probeTask = Task { [weak self] in
             for attempt in 0..<Self.probeAttempts {
@@ -157,15 +168,23 @@ public final class BrightnessController {
                     }
                 }
 
-                guard !Task.isCancelled, let self else { return }
+                // The generation check matters more than the cancellation one: a
+                // refresh that replaced the display may already have started a
+                // newer probe, and this run must not write over its result.
+                guard !Task.isCancelled, let self, self.probeGeneration == generation else { return }
                 guard let probe else { continue }
 
+                self.isProbing = false
                 self.ddc = probe.service
                 self.ddcMaximum = probe.maximum
                 self.mode = .ddc
                 self.applyNow()
                 return
             }
+
+            // Out of attempts: stay in software mode, but let a later probe run.
+            guard let self, self.probeGeneration == generation else { return }
+            self.isProbing = false
         }
     }
 
@@ -236,6 +255,15 @@ public final class BrightnessController {
         guard open != isPopoverOpen else { return }
         isPopoverOpen = open
         updateCursorWatch()
+
+        // Opening the popover in software mode is the one moment the user is
+        // certainly looking at the warning, which makes it the cheapest possible
+        // place to ask the panel again. A monitor that was slow to come up, or
+        // that woke without posting a reconfiguration, otherwise stays stuck
+        // dimming by gamma until the app is relaunched.
+        if open, mode == .software {
+            startProbe()
+        }
     }
 
     /// At zero the screen is black, which used to be the argument for never
